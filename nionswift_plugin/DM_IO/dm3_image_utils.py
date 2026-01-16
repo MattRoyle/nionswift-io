@@ -336,6 +336,7 @@ def save_image(xdata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, fi
     # finally some display options
     ret["Image Behavior"] = {"ViewDisplayID": 8}
     dm_metadata = dict(metadata)
+    dm_metadata.pop("dm_metadata")
     if metadata.get("hardware_source", dict()).get("signal_type", "").lower() == "eels":
         if len(data.shape) == 1 or (len(data.shape) == 2 and data.shape[0] == 1):
             dm_metadata.setdefault("Meta Data", dict())["Format"] = "Spectrum"
