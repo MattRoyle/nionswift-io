@@ -85,7 +85,7 @@ class DM5IODelegate(DMIODelegate):
             calibrations = list[tuple[float, float, str]]()
             for name, dimension in image_data.get('Calibrations', dict()).get('Dimension', dict()).items():
                 origin = dimension.attrs.get('Origin', 0.0)
-                scale = dimension.attrs.get('Scale', 1.0)git
+                scale = dimension.attrs.get('Scale', 1.0)
                 units = dimension.attrs.get('Units', "")
                 calibrations.append((-origin * scale, scale, units.astype(str)))
             calibrations = list(reversed(calibrations))
