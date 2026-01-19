@@ -1,5 +1,6 @@
 """
-    Support for DM5 I/O.
+    Support for DM5 File importing and exporting.
+    The thumbnail is not preserved when importing files.
 """
 
 # standard libraries
@@ -100,9 +101,8 @@ class DM5IODelegate(DMIODelegate):
             if file.get("ImageList", dict()).get(f"[{image_ref}]", dict()).get('ImageTags') is None: # Handle no metadata for image
                 return DataAndMetadata.new_data_and_metadata(data)
 
-            # TODO properties doesn't contain the thumbnail currently, should it?
             unread_dm_metadata_dict = convert_group_to_dict(file)
-            image_tags = unread_dm_metadata_dict.get("ImageList", dict()).pop(f"[{image_ref}]", dict()).get('ImageTags', dict())
+            image_tags = unread_dm_metadata_dict.get("ImageList", dict()).get(f"[{image_ref}]", dict()).get('ImageTags', dict())
             meta_data_attrs = image_tags.get('Meta Data', dict()).get('attrs', dict()).get('data', dict())
             is_spectrum = meta_data_attrs.get('Format', "").lower() in ("spectrum", "spectrum image")
             unique_id = file.get("ImageList").get(f"[{image_ref}]").get('UniqueID')
@@ -230,7 +230,7 @@ class DM5IODelegate(DMIODelegate):
                     dimension.attrs.create(name="Scale", data=dimensional_calibration.scale, dtype=np.float32)
                     dimension.attrs.create(name="Units", data=dimensional_calibration.units)
 
-            if intensity_calibration: # TODO does attributes need the empty label?
+            if intensity_calibration:
                 origin = 0.0 if intensity_calibration.scale == 0.0 else -intensity_calibration.scale / intensity_calibration.scale
                 brightness = safe_create_group(calibrations, "Brightness")
                 brightness.attrs.create(name="Origin", data=origin, dtype=np.float32)
@@ -239,25 +239,25 @@ class DM5IODelegate(DMIODelegate):
 
             image_tags = convert_dict_to_group(metadata.get("ImageTags", dict()), source_image)
 
-            if False: # TODO determine where to put the time stamps
+
+            if modified:
                 data_bar = safe_create_group(image_tags, name="Databar")
-                if modified:
-                    timezone_str = None
-                    if timezone:
-                        try:
-                            tz = pytz.timezone(timezone)
-                            timezone_str = tz.tzname(modified)
-                        except NonExistentTimeError or AmbiguousTimeError:
-                            timezone_str = None
+                timezone_str = None
+                if timezone:
+                    try:
+                        tz = pytz.timezone(timezone)
+                        timezone_str = tz.tzname(modified)
+                    except (AmbiguousTimeError, NonExistentTimeError):
+                        timezone_str = None
 
-                    if timezone_offset is None and timezone_offset:
-                        timezone_str = timezone_offset
+                if timezone_offset is None and timezone_offset:
+                    timezone_str = timezone_offset
 
-                    timezone_str = "" if timezone_str is None else " " + timezone_str
-                    date_str = modified.strftime("%x")
-                    time_str = modified.strftime("%X") + timezone_str
-                    data_bar.attrs.create(name="Acquisition Date", data=date_str)
-                    data_bar.attrs.create(name="Acquisition Time", data=time_str)
+                timezone_str = "" if timezone_str is None else " " + timezone_str
+                date_str = modified.strftime("%x")
+                time_str = modified.strftime("%X") + timezone_str
+                data_bar.attrs.create(name="Acquisition Date", data=date_str)
+                data_bar.attrs.create(name="Acquisition Time", data=time_str)
 
             image_source_list = safe_create_group(base_group, "ImageSourceList")
             image_source = safe_create_group(image_source_list, "[0]") # This location is stored in the DocumentObjectList
@@ -271,7 +271,7 @@ class DM5IODelegate(DMIODelegate):
             data_document_object.attrs.create(name="ImageSource", data=0, dtype=np.uint64)
             data_document_object.attrs.create(name="AnnotationType", data=20, dtype=np.uint32)  # Annotation type 20 is image display
 
-            meta_data_dict = dict()
+            meta_data_dict:dict[str, typing.Any] = dict()
             meta_data_dict['attrs'] = dict()
             if metadata.get("hardware_source", dict()).get("signal_type", "").lower() == "eels":
                 if len(data.shape) == 1 or (len(data.shape) == 2 and data.shape[0] == 1):
