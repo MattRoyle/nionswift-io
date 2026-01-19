@@ -20,7 +20,7 @@ from nion.data import DataAndMetadata
 from nion.data import Calibration
 import nionswift_plugin.DM_IO.DMDelegates
 import nionswift_plugin.DM_IO.DM5Utils
-from nionswift_plugin.DM_IO import DM5IODelegate
+from nionswift_plugin.DM_IO.DMDelegates import DM5IODelegate
 
 
 def is_equal(r: typing.Any, data: typing.Any) -> bool:
