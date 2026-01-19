@@ -72,13 +72,10 @@ def data_serialization(data: DM_FILE_TYPES) \
         }
     else:
         raise TypeError(f"{type(data)} is not supported.")
-        serialized = {
-            'data': data,
-        }
     return serialized
 
 
-def data_unserialization(serialized: typing.Mapping[str, DM_DICT_TYPES]) \
+def data_deserialization(serialized: typing.Mapping[str, DM_DICT_TYPES]) \
         -> DM_FILE_TYPES:
     shape = serialized.get('shape')
     dtype = serialized.get('dtype')
@@ -173,7 +170,7 @@ def convert_dict_to_group(base_dict: typing.Dict[str, typing.Any], group: h5py.G
     """
     def _convert_dict_to_attrs(attrs_dict: typing.Dict[str, typing.Any], base_group: h5py.Group) -> None:
         for key, value in attrs_dict.items():
-            value = data_unserialization(value)
+            value = data_deserialization(value)
             assert (isinstance(key, str))
             if value:
                 base_group.attrs.create(name=key, data=value)

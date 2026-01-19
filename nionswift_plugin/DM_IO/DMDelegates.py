@@ -73,7 +73,7 @@ class DM5IODelegate(DMIODelegate):
 
     def read_data_and_metadata(self, extension: str, file_path: str) -> DataAndMetadata.DataAndMetadata:
         with (h5py.File(file_path, "r") as file):
-            # Find the index in the image list where the image data is stored TODO should the default be dict() or an empty h5py.Group?
+            # Find the index in the image list where the image data is stored
             image_source_index = file.get("DocumentObjectList", dict()).get('[0]', dict()).attrs.get("ImageSource")
             image_ref = file.get("ImageSourceList", dict()).get(f"[{image_source_index}]", dict()).attrs.get("ImageRef")
             image_data = file.get("ImageList").get(f"[{image_ref}]").get("ImageData")

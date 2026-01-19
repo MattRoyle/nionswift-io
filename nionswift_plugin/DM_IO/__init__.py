@@ -21,7 +21,7 @@ def load_image(file_path: str) -> DataAndMetadata.DataAndMetadata:
         return dm3_image_utils.load_image(f)
 
 
-class DM3IOExtension(object):
+class DMIOExtension(object):
 
     # required for Swift to recognize this as an extension class.
     extension_id = "nion.swift.extensions.dm3"
