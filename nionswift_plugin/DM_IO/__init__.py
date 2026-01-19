@@ -11,8 +11,8 @@ import typing
 from nion.data import DataAndMetadata
 
 # local libraries
-from . import dm3_image_utils
-from .DMDelegates import DM5IODelegate, DMIODelegate
+from nionswift_plugin.DM_IO import dm3_image_utils
+from nionswift_plugin.DM_IO.DMDelegates import DM5IODelegate, DMIODelegate
 
 _ = gettext.gettext
 
