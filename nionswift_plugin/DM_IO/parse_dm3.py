@@ -11,6 +11,7 @@ import numpy.typing
 
 long_type = int
 
+
 def str_to_iso8859_bytes(s: str) -> bytes:
     return bytes(s, 'ISO-8859-1')
 
