@@ -129,14 +129,12 @@ def data_deserialization(serialized: typing.Mapping[str, DM_DICT_TYPES]) \
     elif np.issubdtype(np_dtype, np.ndarray):
         shape = typing.cast(typing.Tuple[int], shape)
         return_data = np.array(data).reshape(shape)
-        print(f"1 return_data was converted to array {data} -> {return_data}")
     elif np.issubdtype(np_dtype, np.bytes_):
         return_data = np.bytes_(data.encode("latin1"))
     elif np.issubdtype(np_dtype, np.bool_):
         return_data = np.bool_(data)
     elif np_dtype is not None:
         return_data = np.asarray(data, dtype=np_dtype)[()]
-        print(f"2 Return data was converted to array {data} -> {return_data}")
     if return_data is not None:
         return return_data
     raise TypeError(f"{dtype}, {shape} {data} {type(data)} is not supported.")
@@ -250,7 +248,6 @@ def squash_metadata_dict(metadata_dict: dict[str, typing.Any]) -> dict[str, typi
         for key, value in attrs_dict.items():
             if isinstance(value, dict):
                 data = value.get('data')  # Serialized attributes store the value at the key data
-                #print(value)
                 if data is not None:
                     while isinstance(data, dict) and data.get('data') is not None:
                         data = data['data']  # The np.void data is another level deeper
@@ -260,10 +257,7 @@ def squash_metadata_dict(metadata_dict: dict[str, typing.Any]) -> dict[str, typi
 
     def _recursive_squash_dict(base_dict: dict[str, typing.Any]) -> dict[str, typing.Any]:
         new_dict = {}
-        print(f"Base_dict: {base_dict}")
-
         for key, value in base_dict.items():
-            print(f"Squashing {key}, value: {value}")
             if key == 'attrs':
                 _convert_attrs(value, new_dict)
             elif isinstance(value, dict):
@@ -281,5 +275,4 @@ def squash_metadata_dict(metadata_dict: dict[str, typing.Any]) -> dict[str, typi
                         items.append(item)
                 new_dict[key] = items
         return new_dict
-    print(f"Im squashing metadata {metadata_dict}")
     return _recursive_squash_dict(metadata_dict)

@@ -410,7 +410,6 @@ class DM5IODelegate(DMIODelegate):
                     image_tags.pop('attrs')
 
             properties.update(DM5Utils.squash_metadata_dict(image_tags))
-            print(f"After squash properties {properties}")
             properties["dm_metadata"] = unread_dm_metadata_dict
 
             dimensional_calibrations = [Calibration.Calibration(c[0], c[1], c[2]) for c in calibrations]
