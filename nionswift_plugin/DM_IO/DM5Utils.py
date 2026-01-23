@@ -37,14 +37,14 @@ def get_filetime_from_datetime(time_dt: datetime.datetime) -> int:
     return file_time_ticks
 
 
-def safe_create_group(base_group: h5py.Group, name: str) -> h5py.Group:
+def get_or_create_group(base_group: h5py.Group, name: str) -> h5py.Group:
     group = base_group.get(name)
     if group is None:
         return base_group.create_group(name)
     return group
 
 
-def data_serialization(data: DM_FILE_TYPES | str | bool) \
+def convert_dm_to_swift(data: DM_FILE_TYPES | str | bool) \
         -> typing.Dict[str, DM_DICT_TYPES | dict[str, typing.Any]]:
 
     def serialize_dtype(fields: MappingProxyType[str, tuple[np.dtype[typing.Any], int]]) \
@@ -56,6 +56,7 @@ def data_serialization(data: DM_FILE_TYPES | str | bool) \
                 'alignment': alignment,
             }
         return void_dict
+
     if isinstance(data, (float, int)):
         serialized = data
     elif isinstance(data, (list, tuple)):
@@ -65,14 +66,14 @@ def data_serialization(data: DM_FILE_TYPES | str | bool) \
         }
     elif isinstance(data, np.ndarray):
         serialized = {
-            'data': [data_serialization(x) for x in data.tolist()],
+            'data': [convert_dm_to_swift(x) for x in data.tolist()],
             'dtype': data.dtype.str,
             'shape': data.shape,
         }
     elif isinstance(data, np.void) and data.dtype.fields is not None:
         serialized = {
             'data': {
-                'data': [data_serialization(x) for x in data.tolist()],
+                'data': [convert_dm_to_swift(x) for x in data.tolist()],
                 'fields': serialize_dtype(data.dtype.fields),
             },
             'dtype': data.dtype.str,
@@ -90,7 +91,7 @@ def data_serialization(data: DM_FILE_TYPES | str | bool) \
         }
     elif isinstance(data, str):
         serialized = {
-            'data': data.encode('latin1').decode('latin1'),
+            'data': data,
             'dtype': np.dtype(np.bytes_).str
         }
     elif isinstance(data, bool):
@@ -149,7 +150,7 @@ def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
     def _convert_group_to_sequence(base_group: h5py.Group) -> list[typing.Any] | tuple[typing.Any, ...] | typing.Any:
         list_type_str = base_group.attrs.get('listtype')
         if list_type_str is not None:
-            sequence = [] if list_type_str == 'list' else ()
+            sequence = []
             data = base_group.attrs.get('data')
             if data is not None:
                 if isinstance(data, np.ndarray):
@@ -160,12 +161,13 @@ def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
                             sequence.append(element)
         else:
             sequence = base_group.attrs.get('data')
-        return sequence
+
+        return sequence if list_type_str == 'list' else tuple(sequence)
 
     def _convert_attrs_to_dict(attrs: h5py.AttributeManager) -> dict[str, typing.Any]:
         attrs_dict: dict[str, typing.Any] = dict()
         for key, value in attrs.items():
-            value = data_serialization(value)
+            value = convert_dm_to_swift(value)
             if isinstance(key, bytes):
                 key = key.decode('latin1')
             assert (isinstance(key, str))
@@ -177,7 +179,7 @@ def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
         base_dict: dict[str, typing.Any] = dict()
         attributes = base_group.attrs
         if attributes.get('listtype') is not None:
-            base_dict[base_group.name] = _convert_group_to_sequence(base_group)
+            return _convert_group_to_sequence(base_group)
         elif len(attributes.items()) != 0:
             base_dict['attrs'] = _convert_attrs_to_dict(attributes)
         for key, value in base_group.items():
@@ -190,7 +192,6 @@ def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
         return base_dict
 
     return _recursive_group_to_dict(group)
-
 
 def convert_dict_to_group(base_dict: typing.Dict[str, typing.Any], group: h5py.Group) -> h5py.Group:
     """
@@ -224,14 +225,14 @@ def convert_dict_to_group(base_dict: typing.Dict[str, typing.Any], group: h5py.G
             if key == 'attrs':
                 _convert_dict_to_attrs(value, top_group)
             elif isinstance(value, dict):
-                new_group = safe_create_group(top_group, key)
+                new_group = get_or_create_group(top_group, key)
                 _recursive_dict_to_group(recursive_dict[key], new_group)
             elif key is not None and key != '':
                 if isinstance(value, str):
                     data = np.bytes_(value.encode())
                     top_group.attrs.create(name=key, data=data)
                 elif isinstance(value, (list, tuple)):
-                    new_group = safe_create_group(top_group, key)
+                    new_group = get_or_create_group(top_group, key)
                     data = np.array([x for x in value if x is not None])
                     new_group.attrs.create(name='data', data=data)
                     new_group.attrs.create(name='listtype', data='list' if type(value) == list else 'tuple')
@@ -249,24 +250,36 @@ def squash_metadata_dict(metadata_dict: dict[str, typing.Any]) -> dict[str, typi
         for key, value in attrs_dict.items():
             if isinstance(value, dict):
                 data = value.get('data')  # Serialized attributes store the value at the key data
-
+                #print(value)
                 if data is not None:
                     while isinstance(data, dict) and data.get('data') is not None:
                         data = data['data']  # The np.void data is another level deeper
-
-
                     value = data
             assert (isinstance(key, str))
             base_dict.update({key: value})
 
     def _recursive_squash_dict(base_dict: dict[str, typing.Any]) -> dict[str, typing.Any]:
         new_dict = {}
+        print(f"Base_dict: {base_dict}")
+
         for key, value in base_dict.items():
+            print(f"Squashing {key}, value: {value}")
             if key == 'attrs':
                 _convert_attrs(value, new_dict)
             elif isinstance(value, dict):
-                    new_dict[key] = _recursive_squash_dict(base_dict[key])
-
+                new_dict[key] = _recursive_squash_dict(base_dict[key])
+            elif isinstance(value, list):
+                items = []
+                for item in value:
+                    if isinstance(item, dict):
+                        items.append(_recursive_squash_dict(item))
+                    elif isinstance(item, np.floating):
+                        items.append(float(item))
+                    elif isinstance(item, np.integer):
+                        items.append(int(item))
+                    else:
+                        items.append(item)
+                new_dict[key] = items
         return new_dict
-
+    print(f"Im squashing metadata {metadata_dict}")
     return _recursive_squash_dict(metadata_dict)

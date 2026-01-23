@@ -215,6 +215,7 @@ class TestDMImportExportBase(abc.ABC):
                     # the following will not work until there is a schema or other type hinting to distinguish
                     # this from the "six" case.
                     # "eight": (1, 2, 3, 4), "eightf": (1.0, 2.0, 3.0, 4.0),
+                    # "eight": (1, 2, 3, 4), "eightf": (1.0, 2.0, 3.0, 4.0),
                 }
             }
             xdata_in = DataAndMetadata.new_data_and_metadata(data_in, data_descriptor=data_descriptor_in, dimensional_calibrations=dimensional_calibrations_in, intensity_calibration=intensity_calibration_in, metadata=metadata_in)

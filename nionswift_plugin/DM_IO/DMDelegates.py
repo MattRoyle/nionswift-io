@@ -410,7 +410,7 @@ class DM5IODelegate(DMIODelegate):
                     image_tags.pop('attrs')
 
             properties.update(DM5Utils.squash_metadata_dict(image_tags))
-
+            print(f"After squash properties {properties}")
             properties["dm_metadata"] = unread_dm_metadata_dict
 
             dimensional_calibrations = [Calibration.Calibration(c[0], c[1], c[2]) for c in calibrations]
@@ -427,7 +427,7 @@ class DM5IODelegate(DMIODelegate):
                                                          timezone=timezone,
                                                          timezone_offset=timezone_offset)
 
-    def save_image(self, data_and_metadata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, file_version: int) -> None:
+    def save_image(self, data_and_metadata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, _: int) -> None:
         data = data_and_metadata.data
         dimensional_calibrations = data_and_metadata.dimensional_calibrations
         intensity_calibration = data_and_metadata.intensity_calibration
@@ -459,31 +459,31 @@ class DM5IODelegate(DMIODelegate):
         unique_id = dm_metadata.pop("UniqueID") if dm_metadata.get("UniqueID") is not None else None
         with (h5py.File(file, "w") as f):
             base_group = DM5Utils.convert_dict_to_group(dm_metadata, f)
-            image_list = DM5Utils.safe_create_group(base_group, "ImageList")
-            source_image = DM5Utils.safe_create_group(image_list, "[1]")  # The image should be in ImageList:[1], 0 is reserved for thumbnails
-            image_data = DM5Utils.safe_create_group(source_image, "ImageData")
+            image_list = DM5Utils.get_or_create_group(base_group, "ImageList")
+            source_image = DM5Utils.get_or_create_group(image_list, "[1]")  # The image should be in ImageList:[1], 0 is reserved for thumbnails
+            image_data = DM5Utils.get_or_create_group(source_image, "ImageData")
             image_data.require_dataset("Data", data=data, shape=data.shape, dtype=data.dtype)
-            calibrations = DM5Utils.safe_create_group(image_data, "Calibrations")
+            calibrations = DM5Utils.get_or_create_group(image_data, "Calibrations")
             if unique_id:
                 DM5Utils.convert_dict_to_group(unique_id, source_image)
             # Set up the dimension list with the attributes
             if dimensional_calibrations and len(dimensional_calibrations) == len(data.shape):
-                dimension_list = DM5Utils.safe_create_group(calibrations, "Dimension")
+                dimension_list = DM5Utils.get_or_create_group(calibrations, "Dimension")
                 for i, dimensional_calibration in enumerate(reversed(dimensional_calibrations)):
                     origin = 0.0 if dimensional_calibration.scale == 0.0 else -dimensional_calibration.offset / dimensional_calibration.scale
-                    dimension = DM5Utils.safe_create_group(dimension_list, f"[{i}]")
+                    dimension = DM5Utils.get_or_create_group(dimension_list, f"[{i}]")
                     dimension.attrs.create(name="Origin", data=origin, dtype=numpy.float32)
                     dimension.attrs.create(name="Scale", data=dimensional_calibration.scale, dtype=numpy.float32)  # dm5 stores as float32 however this can introduce floating point issues as python uses 64-bit floats
                     dimension.attrs.create(name="Units", data=numpy.bytes_(dimensional_calibration.units.encode()))
 
             if intensity_calibration:
                 origin = 0.0 if intensity_calibration.scale == 0.0 else -intensity_calibration.offset / intensity_calibration.scale
-                brightness = DM5Utils.safe_create_group(calibrations, "Brightness")
+                brightness = DM5Utils.get_or_create_group(calibrations, "Brightness")
                 brightness.attrs.create(name="Origin", data=origin, dtype=numpy.float32)
                 brightness.attrs.create(name="Scale", data=intensity_calibration.scale, dtype=numpy.float32)
                 brightness.attrs.create(name="Units", data=numpy.bytes_(intensity_calibration.units.encode()))
 
-            image_tags = DM5Utils.safe_create_group(source_image, "ImageTags")
+            image_tags = DM5Utils.get_or_create_group(source_image, "ImageTags")
             convert_dict_to_group(metadata, image_tags)
 
             if modified:
@@ -502,7 +502,7 @@ class DM5IODelegate(DMIODelegate):
                 date_str = modified.strftime("%x")
                 time_str = modified.strftime("%X") + timezone_str
                 if image_tags.get('Databar') is not None:
-                    data_bar = DM5Utils.safe_create_group(image_tags, name="Databar")
+                    data_bar = DM5Utils.get_or_create_group(image_tags, name="Databar")
                     data_bar.attrs.create(name="Acquisition Date", data=numpy.bytes_(date_str.encode('latin1')))
                     data_bar.attrs.create(name="Acquisition Time", data=numpy.bytes_(time_str.encode('latin1')))
 
@@ -513,15 +513,15 @@ class DM5IODelegate(DMIODelegate):
             if timezone_offset:
                 image_tags.attrs.create(name="TimezoneOffset", data=numpy.bytes_(timezone_offset.encode('latin1')))
 
-            image_source_list = DM5Utils.safe_create_group(base_group, "ImageSourceList")
-            image_source = DM5Utils.safe_create_group(image_source_list, "[0]")  # This location is stored in the DocumentObjectList
+            image_source_list = DM5Utils.get_or_create_group(base_group, "ImageSourceList")
+            image_source = DM5Utils.get_or_create_group(image_source_list, "[0]")  # This location is stored in the DocumentObjectList
             image_source.attrs.create(name="ClassName", data=numpy.bytes_("ImageSourceSimple".encode('latin1')))
             image_source.attrs.create(name="ImageRef", data=1, dtype=numpy.uint32)  # The reference in the ImageList
-            id_group = DM5Utils.safe_create_group(image_source, name="Id")
+            id_group = DM5Utils.get_or_create_group(image_source, name="Id")
             id_group.attrs.create(name="[0]", data=0, dtype=numpy.uint32)
 
-            document_object_list = DM5Utils.safe_create_group(base_group, "DocumentObjectList")
-            data_document_object = DM5Utils.safe_create_group(document_object_list, "[0]")
+            document_object_list = DM5Utils.get_or_create_group(base_group, "DocumentObjectList")
+            data_document_object = DM5Utils.get_or_create_group(document_object_list, "[0]")
             data_document_object.attrs.create(name="ImageSource", data=0, dtype=numpy.uint64)
             data_document_object.attrs.create(name="AnnotationType", data=20, dtype=numpy.uint32)  # Annotation type 20 is image display
 
@@ -529,15 +529,15 @@ class DM5IODelegate(DMIODelegate):
             meta_data_dict['attrs'] = dict()
             if metadata.get("hardware_source", dict()).get("signal_type", "").lower() == "eels":
                 if len(data.shape) == 1 or (len(data.shape) == 2 and data.shape[0] == 1):
-                    meta_data_dict['attrs']["Format"] = DM5Utils.data_serialization("Spectrum")
-                    meta_data_dict['attrs']["Signal"] = DM5Utils.data_serialization("EELS")
+                    meta_data_dict['attrs']["Format"] = DM5Utils.convert_dm_to_swift("Spectrum")
+                    meta_data_dict['attrs']["Signal"] = DM5Utils.convert_dm_to_swift("EELS")
             elif collection_dimension_count == 2 and datum_dimension_count == 1:
-                meta_data_dict['attrs']["Format"] = DM5Utils.data_serialization("Spectrum image")
-                meta_data_dict['attrs']["Signal"] = DM5Utils.data_serialization("EELS")
+                meta_data_dict['attrs']["Format"] = DM5Utils.convert_dm_to_swift("Spectrum image")
+                meta_data_dict['attrs']["Signal"] = DM5Utils.convert_dm_to_swift("EELS")
                 needs_slice = True
             if datum_dimension_count == 1:
                 # 1d data is always marked as spectrum
-                meta_data_dict['attrs']["Format"] = DM5Utils.data_serialization("Spectrum image" if collection_dimension_count == 2 else "Spectrum")
+                meta_data_dict['attrs']["Format"] = DM5Utils.convert_dm_to_swift("Spectrum image" if collection_dimension_count == 2 else "Spectrum")
             if needs_slice or (collection_dimension_count + (1 if is_sequence else 0)) == 1:
                 if is_sequence:
                     meta_data_dict['attrs']["IsSequence"] = {"data": True, "dtype": numpy.dtype(numpy.bool_).str}
@@ -549,13 +549,13 @@ class DM5IODelegate(DMIODelegate):
                 image_source.attrs.create(name="Summed Dimension", data=len(data.shape) - 1)
 
                 if needs_slice:
-                    annotation_group_list = DM5Utils.safe_create_group(data_document_object, "AnnotationGroupList")
-                    annotation_group = DM5Utils.safe_create_group(annotation_group_list, "[0]")
+                    annotation_group_list = DM5Utils.get_or_create_group(data_document_object, "AnnotationGroupList")
+                    annotation_group = DM5Utils.get_or_create_group(annotation_group_list, "[0]")
                     annotation_group.attrs.create(name="AnnotationType", data=23)
                     annotation_group.attrs.create(name="Name", data=numpy.bytes_("SICursor".encode('latin1')))
                     annotation_group.attrs.create(name="Rectangle", data=(0, 0, 1, 1), dtype=[('top', '<f4'), ('left', '<f4'), ('bottom', '<f4'), ('right', '<f4')])
                     data_document_object.attrs.create(name="ImageDisplayType", data=1)
 
             if len(meta_data_dict['attrs']) != 0 or len(meta_data_dict) > 1:
-                meta_data_group = DM5Utils.safe_create_group(image_tags, "Meta Data")
+                meta_data_group = DM5Utils.get_or_create_group(image_tags, "Meta Data")
                 DM5Utils.convert_dict_to_group(meta_data_dict, meta_data_group)
