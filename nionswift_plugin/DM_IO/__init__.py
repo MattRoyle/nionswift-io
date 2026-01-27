@@ -7,6 +7,7 @@ import gettext
 import pathlib
 import typing
 
+from DM_IO.DM5Delegate import DM5IODelegate
 # third party libraries
 from nion.data import DataAndMetadata
 
@@ -74,11 +75,15 @@ class DM3IOExtension(object):
         api = api_broker.get_api(version="1", ui_version="1")
         # be sure to keep a reference or it will be closed immediately.
         self.__io_handler_ref = api.create_data_and_metadata_io_handler(DM3IODelegate(api))
+        self.__dm5_io_handler_ref = api.create_data_and_metadata_io_handler(DM5IODelegate())
 
     def close(self) -> None:
         # close will be called when the extension is unloaded. in turn, close any references so they get closed. this
         # is not strictly necessary since the references will be deleted naturally when this object is deleted.
         self.__io_handler_ref.close()
         self.__io_handler_ref = None
+
+        self.__dm5_io_handler_ref.close()
+        self.__dm5_io_handler_ref = None
 
 # TODO: How should IO delegate handle title when reading using read_data_and_metadata
