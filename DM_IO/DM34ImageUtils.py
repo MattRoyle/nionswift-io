@@ -25,13 +25,6 @@ from DM_IO import ParseDM34File
 def str_to_utf16_bytes(s: str) -> bytes:
     return s.encode('utf-16')
 
-def get_datetime_from_timestamp_str(timestamp_str: str) -> typing.Optional[datetime.datetime]:
-    if len(timestamp_str) in (23, 26):
-        return datetime.datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%f")
-    elif len(timestamp_str) == 19:
-        return datetime.datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S")
-    return None
-
 structarray_to_np_map = {
     ('d', 'd'): numpy.complex128,
     ('f', 'f'): numpy.complex64}
