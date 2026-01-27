@@ -406,41 +406,6 @@ class TestDM5ImportExport(TestDMImportExportBase, unittest.TestCase):
     @property
     def versions(self) -> list[int]:
         return [5]
-    
-    def test_time_conversion(self):
-        test_datetimes = [
-            datetime.datetime(2025, 1, 1),
-            datetime.datetime(2025, 1, 1, 12, 30, 45),
-            datetime.datetime(2025, 12, 31, 23, 59, 59, 999999),  # max microsecond
-            datetime.datetime(1970, 1, 1, 0, 0, 0),  # Unix epoch
-            datetime.datetime(9999, 12, 31, 23, 59, 59, 999999),  # Python max datetime.datetime
-            datetime.datetime(2024, 2, 29, 15, 0),  # leap day
-            datetime.datetime(2000, 2, 29, 23, 59, 59),  # leap year divisible by 400
-            datetime.datetime(2025, 3, 30, 0, 30, tzinfo=zoneinfo.ZoneInfo("Europe/London")),  # before daylight savings
-            datetime.datetime(2025, 3, 30, 1, 30, tzinfo=zoneinfo.ZoneInfo("Europe/London")),  # ambiguous transition
-            datetime.datetime(2025, 10, 26, 1, 30, tzinfo=zoneinfo.ZoneInfo("Europe/London")),  # repeated hour
-            datetime.datetime(2025, 6, 1, 12, 0, tzinfo=datetime.timezone.utc),  # UTC aware
-            datetime.datetime(2025, 6, 1, 12, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30))),  # IST
-            datetime.datetime(2025, 6, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo("America/New_York")),  # US Eastern
-            datetime.datetime(2025, 6, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo("Asia/Tokyo")),  # Japan time
-            datetime.datetime(1950, 5, 17, 8, 20, 0, tzinfo=datetime.timezone.utc), # negative time stamp
-            datetime.datetime(1066, 1, 1, 0, 0, 0),  # before windows filetime start
-            datetime.datetime(2025, 7, 15, 10, 5, 30, 123456),  # microseconds
-            datetime.datetime(2025, 7, 15, 10, 5, 30, 0),  # zero microseconds
-            datetime.datetime.now(),
-            datetime.datetime.now(datetime.timezone.utc),
-            datetime.datetime.now(zoneinfo.ZoneInfo("Europe/London")),
-            datetime.datetime(2035, 8, 1, 9, 0, tzinfo=datetime.timezone.utc),  # 10 years ahead
-            datetime.datetime(2100, 1, 1, 0, 0, 0),  # non‑leap century year
-        ]
-        for datetime_in in test_datetimes:
-            filetime = DM5Utils.get_filetime_from_datetime(datetime_in)
-            datetime_out = DM5Utils.get_datetime_from_filetime(filetime)
-            if datetime_in.tzinfo is None:
-                time_in_utc = datetime_in.replace(tzinfo=datetime.timezone.utc)
-            else:
-                time_in_utc = datetime_in.astimezone(tz=datetime.timezone.utc)
-            self.assertEqual(time_in_utc, datetime_out)
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)

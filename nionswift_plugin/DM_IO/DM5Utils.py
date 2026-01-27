@@ -43,8 +43,30 @@ def get_or_create_group(base_group: h5py.Group, name: str) -> h5py.Group:
         return base_group.create_group(name)
     return group
 
+def save_attr_to_group(name: str, data: typing.Any, group: h5py.Group, dtype: NP_NUMERICAL_TYPES | list[tuple[str, ...]] = None) -> None:
+    if group.attrs.get(name) is not None:
+        if isinstance(data, str):
+            value = np.bytes_(data.encode())
+        elif isinstance(data, bool):
+            value = np.bool_(data)
+        elif isinstance(data, float):
+            if dtype is None:
+                value = np.float64(data)
+            elif isinstance(data, np.floating):
+                value = np.asarray(data, dtype=dtype)[()]
+        elif isinstance(data, int):
+            if dtype is None:
+                value = np.int64(data)
+            elif isinstance(data, np.integer):
+                value = np.asarray(data, dtype=dtype)[()]
+        elif isinstance(data, (tuple, list)) and dtype is not None:
+            np_dtype = np.dtype(dtype)
+            value = np.void(data, np_dtype)
+        else:
+            raise TypeError(f"{data}, {type(data)} is not supported.")
+        group.attrs[name] = value
 
-def convert_dm_to_swift(data: DM_FILE_TYPES | str | bool) \
+def convert_dm_to_swift(data: DM_FILE_TYPES) \
         -> typing.Dict[str, DM_DICT_TYPES | dict[str, typing.Any]]:
 
     def serialize_dtype(fields: MappingProxyType[str, tuple[np.dtype[typing.Any], int]]) \
@@ -57,14 +79,7 @@ def convert_dm_to_swift(data: DM_FILE_TYPES | str | bool) \
             }
         return void_dict
 
-    if isinstance(data, (float, int)):
-        serialized = data
-    elif isinstance(data, (list, tuple)):
-        serialized = {
-            'data': data,
-            'listtype': 'tuple' if type(data) is tuple else 'list'
-        }
-    elif isinstance(data, np.ndarray):
+    if isinstance(data, np.ndarray):
         serialized = {
             'data': [convert_dm_to_swift(x) for x in data.tolist()],
             'dtype': data.dtype.str,
@@ -88,16 +103,6 @@ def convert_dm_to_swift(data: DM_FILE_TYPES | str | bool) \
         serialized = {
             'data': data.item(),
             'dtype': data.dtype.str,
-        }
-    elif isinstance(data, str):
-        serialized = {
-            'data': data,
-            'dtype': np.dtype(np.bytes_).str
-        }
-    elif isinstance(data, bool):
-        serialized = {
-            'data': data,
-            'dtype': np.dtype(np.bool_).str
         }
     else:
         raise TypeError(f"{data}, {type(data)} is not supported.")
@@ -147,6 +152,7 @@ def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
     """
     def _convert_group_to_sequence(base_group: h5py.Group) -> list[typing.Any] | tuple[typing.Any, ...] | typing.Any:
         list_type_str = base_group.attrs.get('listtype')
+        print("this was ran")
         if list_type_str is not None:
             sequence = []
             data = base_group.attrs.get('data')

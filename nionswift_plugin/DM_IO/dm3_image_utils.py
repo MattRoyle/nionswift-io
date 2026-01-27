@@ -174,9 +174,3 @@ def fix_strings(d: typing.Any) -> typing.Any:
             return d.tolist()
     else:
         return d
-
-
-
-
-# logging.debug(image_tags['ImageData']['Calibrations'])
-# {u'DisplayCalibratedUnits': True, u'Dimension': [{u'Origin': -0.0, u'Units': u'nm', u'Scale': 0.01171875}, {u'Origin': -0.0, u'Units': u'nm', u'Scale': 0.01171875}, {u'Origin': 0.0, u'Units': u'', u'Scale': 0.01149425096809864}], u'Brightness': {u'Origin': 0.0, u'Units': u'', u'Scale': 1.0}}

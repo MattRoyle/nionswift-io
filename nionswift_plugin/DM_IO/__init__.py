@@ -15,11 +15,6 @@ from nionswift_plugin.DM_IO import DMDelegates
 
 _ = gettext.gettext
 
-def load_image(file_path: str) -> DataAndMetadata.DataAndMetadata:
-    with open(file_path, "rb", buffering=8 * 1024 * 1024) as f:
-        return dm3_image_utils.load_image(f)
-
-
 class DMIOExtension(object):
 
     # required for Swift to recognize this as an extension class.
