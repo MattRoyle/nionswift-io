@@ -89,7 +89,7 @@ class DM34IODelegate(DMDelegate.DMIODelegate):
                 data_descriptor.collection_dimension_count -= 1
             timestamp_str = image_tags['ImageTags'].get("Timestamp")
             if timestamp_str:
-                timestamp = DM34ImageUtils.get_datetime_from_timestamp_str(timestamp_str)
+                timestamp = DMDelegate.get_datetime_from_timestamp_str(timestamp_str)
             timezone = image_tags['ImageTags'].get("Timezone")
             timezone_offset = image_tags['ImageTags'].get("TimezoneOffset")
             # to avoid having duplicate copies in Swift, get rid of these tags
