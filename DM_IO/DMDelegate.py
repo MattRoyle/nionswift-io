@@ -1,12 +1,12 @@
 """
     Shared code for supported DM imports and exports
 """
-
 # standard libraries
 import gettext
 import pathlib
 import typing
 import abc
+import datetime
 
 from nion.data import DataAndMetadata
 from nion.data import Calibration
@@ -73,3 +73,11 @@ class DMIODelegate(abc.ABC):
     @abc.abstractmethod
     def load_image(self, file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
         ...
+
+
+def get_datetime_from_timestamp_str(timestamp_str: str) -> typing.Optional[datetime.datetime]:
+    if len(timestamp_str) in (23, 26):
+        return datetime.datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%f")
+    elif len(timestamp_str) == 19:
+        return datetime.datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S")
+    return None
