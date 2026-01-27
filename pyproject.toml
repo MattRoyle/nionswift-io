@@ -31,8 +31,6 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = [
     "nionswift_plugin",
-    "nionswift_plugin.DM_IO",
-    "nionswift_plugin.DM_IO.test",
     "nionswift_plugin.TIFF_IO",
     "nionswift_plugin.TIFF_IO.test",
     "DM_IO",
@@ -40,12 +38,10 @@ include = [
 ]
 
 [tool.setuptools.package-data]
-"nionswift_plugin.DM_IO.test" = ["resources/*"]
 "DM_IO.test" = ["resources/*"]
 
 [tool.pytest.ini_options]
 testpaths = [
-    "nionswift_plugin/DM_IO",
     "nionswift_plugin/TIFF_IO",
     "DM_IO"
 ]
