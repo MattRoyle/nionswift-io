@@ -46,6 +46,5 @@ include = [
 [tool.pytest.ini_options]
 testpaths = [
     "nionswift_plugin/DM_IO",
-    "nionswift_plugin/TIFF_IO",
-    "DM_IO"
+    "nionswift_plugin/TIFF_IO"
 ]
