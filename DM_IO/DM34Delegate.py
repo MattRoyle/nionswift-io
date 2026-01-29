@@ -24,8 +24,7 @@ class DM34IODelegate(DMDelegate.DMIODelegate):
         return ["dm4", "dm3"]
 
     def load_image(self, file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
-        """
-        Loads the image from the file-like object or string file.
+        """Loads the image from the file-like object or string file.
         If file is a string, the file is opened and then read.
         Returns a numpy ndarray of our best guess for the most important image
         in the file.
@@ -112,8 +111,7 @@ class DM34IODelegate(DMDelegate.DMIODelegate):
                                                      timezone_offset=timezone_offset)
 
     def save_image(self, xdata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, file_version: int) -> None:
-        """
-        Saves the nparray data to the file-like object (or string) file.
+        """Saves the nparray data to the file-like object (or string) file.
         """
         # we need to create a basic DM tree suitable for an image
         # we'll try the minimum: just an data list
