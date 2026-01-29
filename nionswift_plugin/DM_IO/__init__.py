@@ -11,6 +11,7 @@ from DM_IO import DM34Delegate
 
 _ = gettext.gettext
 
+
 class DMIOExtension(object):
 
     # required for Swift to recognize this as an extension class.

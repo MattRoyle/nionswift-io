@@ -6,6 +6,7 @@ import unittest
 
 from DM_IO import ParseDM34File, DM34ImageUtils
 
+
 def is_equal(r: typing.Any, data: typing.Any) -> bool:
     # we use this to compare the read and written data
     if isinstance(r, (list, tuple)):
