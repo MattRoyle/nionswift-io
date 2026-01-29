@@ -137,7 +137,7 @@ class DM5IODelegate(DMDelegate.DMIODelegate):
             if timestamp_str is None or timezone is None or timezone_offset is None:
                 filetime = data_bar.get('attrs', dict()).get('Acquisition Time (OS)', dict()).get('data')
                 if filetime is not None:
-                    timestamp = DateTime.get_datetime_from_filetime(filetime)
+                    timestamp = DateTime.get_datetime_from_windows_filetime(filetime)
                 timezone = "UTC"
                 timezone_offset = "+0000"
 
@@ -196,9 +196,9 @@ class DM5IODelegate(DMDelegate.DMIODelegate):
                 needs_slice = True
 
         dm_metadata = metadata.get('dm_metadata', dict())
-        if len(dm_metadata) > 0: # in order to preserve as much of a dm5 file structure as possible the importer stores a dict representation in the metadata
-            metadata.pop('dm_metadata') # the dict representation is removed, with the rest of the metadata being used for ImageTags
-        #unique_id = dm_metadata.pop("UniqueID") if dm_metadata.get("UniqueID") is not None else None #
+        if len(dm_metadata) > 0:  # in order to preserve as much of a dm5 file structure as possible the importer stores a dict representation in the metadata
+            metadata.pop('dm_metadata')  # the dict representation is removed, with the rest of the metadata being used for ImageTags
+
         with (h5py.File(file, "w") as f):
             base_group = DM5Utils.convert_dict_to_group(dm_metadata, f)
             image_list = DM5Utils.get_or_create_group(base_group, "ImageList")
@@ -207,10 +207,6 @@ class DM5IODelegate(DMDelegate.DMIODelegate):
             image_data = DM5Utils.get_or_create_group(source_image, "ImageData")
             image_data.require_dataset("Data", data=data, shape=data.shape, dtype=data.dtype)
             calibrations = DM5Utils.get_or_create_group(image_data, "Calibrations")
-
-            #if unique_id:
-            #   DM5Utils.convert_dict_to_group(unique_id,
-            #                                   source_image)  # Add the unique ID to the source image if there is one
 
             # Set up the dimension list with the attributes
             if dimensional_calibrations and len(dimensional_calibrations) == len(data.shape):
