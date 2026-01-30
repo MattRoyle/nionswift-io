@@ -10,6 +10,7 @@ DM_FILE_TYPES = numpy.ndarray | numpy.void | numpy.bytes_ | NP_NUMERICAL_TYPES |
 VOID_FIELD_DICT_TYPES = str | int | dict[str, str | int]
 DM_DICT_TYPES = typing.Tuple[int, ...] | int | str | typing.List[typing.Any] | float | bytes | dict[str, VOID_FIELD_DICT_TYPES]
 
+FieldInfo: typing.TypeAlias = typing.Union[ tuple[numpy.dtype[typing.Any], int], tuple[numpy.dtype[typing.Any], int, typing.Any]]
 
 def get_or_create_group(base_group: h5py.Group, name: str) -> h5py.Group:
     group = base_group.get(name)
@@ -56,15 +57,22 @@ def serialize_dm_attrs_into_swift_metadata(data: DM_FILE_TYPES | int | float) \
     Data can be int or float when there is a recursive call in the ndarray or void, otherwise it is a DM_FILE_TYPE.
     This will raise a TypeError if the type of data was not in DM_FILE_TYPES as an unhandled case.
     """
-    def serialize_void_dtype_into_swift_metadata(fields: types.MappingProxyType[str, tuple[numpy.dtype[typing.Any], int]]) \
+    def serialize_void_dtype_into_swift_metadata(
+            fields: typing.Optional[typing.Mapping[str, FieldInfo]]) \
             -> dict[str, VOID_FIELD_DICT_TYPES]:
+
         void_dict: dict[str, VOID_FIELD_DICT_TYPES] = {}
-        for name, (dtype, alignment) in fields.items():
+        if fields is None:
+            return void_dict
+
+        for name, info in fields.items():
+            dtype, alignment = info[0], info[1]
             void_dict[name] = {
                 'dtype': dtype.str,
                 'alignment': alignment,
             }
         return void_dict
+
     serialized: typing.Dict[str, DM_DICT_TYPES | dict[str, typing.Any]]
     if isinstance(data, numpy.ndarray):
         serialized = {
@@ -104,13 +112,18 @@ def deserialize_dm_attrs_from_swift_metadata(serialized: typing.Mapping[str, DM_
     Uses the stored information in the dict about the original type, and then converts the data to be that type again.
     This will raise an exception if the dictionary passed was not one of the possible serialized versions serialize_dm_attrs_into_swift_metadata.
     """
-    def deserialize_dtype(serialized_void: dict[str, VOID_FIELD_DICT_TYPES]) -> numpy.dtype:
+    def deserialize_dtype(serialized_void: dict[str, VOID_FIELD_DICT_TYPES]) -> numpy.dtype | None:
         void_dict = {}
         for name, value in serialized_void.items():
-            dtype_value = value.get('dtype')
-            element_dtype = numpy.dtype(dtype_value)
-            void_dict[name] = (element_dtype, value.get('alignment'))
-        return numpy.dtype(void_dict)
+            if isinstance(value, dict):
+                dtype_value = value.get('dtype')
+                if isinstance(dtype_value, str):
+                    element_dtype = numpy.dtype(dtype_value)
+                    void_dict[name] = (element_dtype, value.get('alignment'))
+        void_type = numpy.dtype(void_dict) if void_dict else None
+        if isinstance(void_type, numpy.dtype):
+            return void_type
+        return None
 
     shape = serialized.get('shape')
     dtype = serialized.get('dtype', '')

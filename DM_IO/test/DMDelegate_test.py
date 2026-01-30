@@ -18,8 +18,8 @@ from nion.data import DataAndMetadata
 from nion.data import Calibration
 from DM_IO import DMDelegate
 
-class TestDMImportExportBase(abc.ABC):
 
+class TestDMImportExportBase(abc.ABC):
     @property
     @abc.abstractmethod
     def dm_delegate(self) -> DMDelegate.DMIODelegate:
@@ -30,24 +30,36 @@ class TestDMImportExportBase(abc.ABC):
     def versions(self) -> list[int]:
         ...
 
-    def calibrations_equal(self, r: Calibration.Calibration, l: Calibration.Calibration) -> None:
-        self.assertAlmostEqual(r.offset, l.offset, 6)
-        self.assertAlmostEqual(r.scale, l.scale, 6)
-        self.assertEqual(r.units, l.units)
+    @abc.abstractmethod
+    def assert_almost_equal(self, actual: typing.Any, desired: typing.Any, decimal: int = 7, err_msg: str | None = None) -> None:
+        ...
 
-    def dimension_calibrations_equal(self, r: typing.Sequence[Calibration.Calibration],
-                                     l: typing.Sequence[Calibration.Calibration]) -> None:
-        for dimension_r, dimension_l in zip(r, l):
-            self.calibrations_equal(dimension_r, dimension_l)
+    @abc.abstractmethod
+    def assert_equal(self, actual: typing.Any, desired: typing.Any, err_msg: str | None = None) -> None:
+        ...
 
-    def metadata_equal(self, metadata_r: typing.Mapping[str, typing.Any], metadata_l: typing.Mapping[str, typing.Any]):
+    @abc.abstractmethod
+    def assert_true(self, expr: typing.Any, err_msg: str | None = None) -> None:
+        ...
+
+    def calibrations_equal(self, actual_dimension: Calibration.Calibration, desired_dimension: Calibration.Calibration) -> None:
+        self.assert_almost_equal(actual_dimension.offset, desired_dimension.offset, 6)
+        self.assert_almost_equal(actual_dimension.scale, desired_dimension.scale, 6)
+        self.assert_equal(actual_dimension.units, desired_dimension.units)
+
+    def dimension_calibrations_equal(self, actual: typing.Sequence[Calibration.Calibration],
+                                     desired: typing.Sequence[Calibration.Calibration]) -> None:
+        for actual_dimension, desired_dimension in zip(actual, desired):
+            self.calibrations_equal(actual_dimension, desired_dimension)
+
+    def metadata_equal(self, metadata_r: typing.Mapping[str, typing.Any], metadata_l: typing.Mapping[str, typing.Any]) -> None:
         if metadata_r.get("dm_metadata"):
             metadata_r = dict(metadata_r)
             metadata_r.pop('dm_metadata')
         if metadata_l.get("dm_metadata"):
             metadata_l = dict(metadata_l)
             metadata_l.pop('dm_metadata')
-        self.assertEqual(metadata_r, metadata_l)
+        self.assert_equal(metadata_r, metadata_l)
 
     def test_data_write_read_round_trip(self) -> None:
         def db_make_directory_if_needed(directory_path: str) -> None:
@@ -130,8 +142,8 @@ class TestDMImportExportBase(abc.ABC):
                                     self.dm_delegate.save_image(xdata_in, s, version)
                                     s.seek(0)
                                     xdata = self.dm_delegate.load_image(s)
-                                    self.assertTrue(numpy.array_equal(data_in, xdata.data))
-                                    self.assertEqual(data_descriptor_in, xdata.data_descriptor)
+                                    self.assert_true(numpy.array_equal(data_in, xdata.data))
+                                    self.assert_equal(data_descriptor_in, xdata.data_descriptor)
                                     self.dimension_calibrations_equal(dimensional_calibrations_in,
                                                                       xdata.dimensional_calibrations)
 
@@ -151,8 +163,8 @@ class TestDMImportExportBase(abc.ABC):
             self.dm_delegate.save_image(xdata_in, s, version)
             s.seek(0)
             xdata = self.dm_delegate.load_image(s)
-            self.assertTrue(numpy.array_equal(data_in, xdata.data))
-            self.assertEqual(data_descriptor_in, xdata.data_descriptor)
+            self.assert_true(numpy.array_equal(data_in, xdata.data))
+            self.assert_equal(data_descriptor_in, xdata.data_descriptor)
 
     def test_calibrations_write_read_round_trip(self) -> None:
 
@@ -195,9 +207,9 @@ class TestDMImportExportBase(abc.ABC):
             self.dm_delegate.save_image(xdata_in, s, version)
             s.seek(0)
             xdata = self.dm_delegate.load_image(s)
-            self.assertEqual(timestamp_in, xdata.timestamp)
-            self.assertEqual(timezone_in, xdata.timezone)
-            self.assertEqual(timezone_offset_in, xdata.timezone_offset)
+            self.assert_equal(timestamp_in, xdata.timestamp)
+            self.assert_equal(timezone_in, xdata.timezone)
+            self.assert_equal(timezone_offset_in, xdata.timezone_offset)
 
     def test_metadata_write_read_round_trip(self) -> None:
 
@@ -315,12 +327,12 @@ class TestDMImportExportBase(abc.ABC):
                 assert _data is not None
                 s = io.BytesIO(_data)
                 xdata = self.dm_delegate.load_image(s)
-                self.assertAlmostEqual(intensity_calibration.scale, xdata.intensity_calibration.scale, 6)
-                self.assertAlmostEqual(intensity_calibration.offset, xdata.intensity_calibration.offset, 6)
+                self.assert_almost_equal(intensity_calibration.scale, xdata.intensity_calibration.scale, 6)
+                self.assert_almost_equal(intensity_calibration.offset, xdata.intensity_calibration.offset, 6)
                 self.dimension_calibrations_equal(dimensional_calibrations, xdata.dimensional_calibrations)
                 self.calibrations_equal(intensity_calibration, xdata.intensity_calibration)
-                self.assertEqual(data_descriptor, xdata.data_descriptor)
-                self.assertTrue(numpy.array_equal(data, xdata.data))
+                self.assert_equal(data_descriptor, xdata.data_descriptor)
+                self.assert_true(numpy.array_equal(data, xdata.data))
             except Exception as e:
-                print(f"{name} {data_descriptor} FAIL")
+                print(f"{name} {data_descriptor} failed with exception {e}")
                 raise
