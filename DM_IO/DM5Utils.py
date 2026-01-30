@@ -12,7 +12,10 @@ DM_DICT_TYPES = typing.Tuple[int, ...] | int | str | typing.List[typing.Any] | f
 
 FieldInfo: typing.TypeAlias = typing.Union[ tuple[numpy.dtype[typing.Any], int], tuple[numpy.dtype[typing.Any], int, typing.Any]]
 
+# h5py utility functions
+
 def get_or_create_group(base_group: h5py.Group, name: str) -> h5py.Group:
+    """Creates a group if one doesn't already exist and returns it or return the existing group."""
     group = base_group.get(name)
     if group is None:
         return base_group.create_group(name)
@@ -21,6 +24,7 @@ def get_or_create_group(base_group: h5py.Group, name: str) -> h5py.Group:
 
 def save_attr_to_group(name: str, data: typing.Any, group: h5py.Group,
                        dtype: NP_NUMERICAL_TYPES | list[tuple[str, ...]] | None = None) -> None:
+    """Save data to a group's attribute, converting python types to numpy types."""
     value: DM_FILE_TYPES | None = None
     if isinstance(data, str):
         value = numpy.bytes_(data.encode())
@@ -48,15 +52,18 @@ def save_attr_to_group(name: str, data: typing.Any, group: h5py.Group,
     else:
         raise TypeError(f"{data}, {type(data)} is not supported.")
 
+# Serialization Functions
 
 def serialize_dm_attrs_into_swift_metadata(data: DM_FILE_TYPES | int | float) \
         -> typing.Dict[str, DM_DICT_TYPES | dict[str, typing.Any]] | int | float:
     """Converts data in dm5 attrs, DM_FILE_TYPES, into a dict with the data at dict['data'] in a type that can be stored
     in swift metadata.
+
     Information to rebuild the original type is stored in the dict with the converted data.
     Data can be int or float when there is a recursive call in the ndarray or void, otherwise it is a DM_FILE_TYPE.
     This will raise a TypeError if the type of data was not in DM_FILE_TYPES as an unhandled case.
     """
+
     def serialize_void_dtype_into_swift_metadata(
             fields: typing.Optional[typing.Mapping[str, FieldInfo]]) \
             -> dict[str, VOID_FIELD_DICT_TYPES]:
@@ -108,18 +115,21 @@ def serialize_dm_attrs_into_swift_metadata(data: DM_FILE_TYPES | int | float) \
 
 def deserialize_dm_attrs_from_swift_metadata(serialized: typing.Mapping[str, DM_DICT_TYPES]) \
         -> DM_FILE_TYPES:
-    """Deserialized dm attrs data that was serialized using serialize_dm_attrs_into_swift_metadata.
+    """Convert the swift metadata back to dm5 attrs data that was serialized using serialize_dm_attrs_into_swift_metadata.
+
     Uses the stored information in the dict about the original type, and then converts the data to be that type again.
-    This will raise an exception if the dictionary passed was not one of the possible serialized versions serialize_dm_attrs_into_swift_metadata.
+    This will raise an exception if the dictionary passed was not one of the possible serialized versions from serialize_dm_attrs_into_swift_metadata.
     """
+
     def deserialize_dtype(serialized_void: dict[str, VOID_FIELD_DICT_TYPES]) -> numpy.dtype | None:
-        void_dict = {}
+        print("this ran")
+        void_dict = []
         for name, value in serialized_void.items():
             if isinstance(value, dict):
                 dtype_value = value.get('dtype')
                 if isinstance(dtype_value, str):
                     element_dtype = numpy.dtype(dtype_value)
-                    void_dict[name] = (element_dtype, value.get('alignment'))
+                    void_dict.append((element_dtype, value.get('alignment')))
         void_type = numpy.dtype(void_dict) if void_dict else None
         if isinstance(void_type, numpy.dtype):
             return void_type
@@ -152,15 +162,57 @@ def deserialize_dm_attrs_from_swift_metadata(serialized: typing.Mapping[str, DM_
     raise TypeError(f"{dtype}, {shape} {data} {type(data)} is not supported.")
 
 
-def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
-    """Recursively visit all the nodes in the group. Converts groups to dicts, and stores attrs as a nested dict converting
-    data to a type that can be stored in swift metadata DM_DICT_TYPES.
-    Datasets are not stored in the output dictionary.
+def squash_metadata_dict(metadata_dict: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    """Removes the stored types made by serialize_dm_attrs_into_swift_metadata leaving only the data in the swift metadata dict.
+
+    This is done so the swift metadata structure for everything but dm_metadata is identical to what would be seen in dm3/4.
     """
+
+    def _convert_attrs(attrs_dict: typing.Dict[str, typing.Any], base_dict: dict[str, typing.Any]) -> None:
+        for key, value in attrs_dict.items():
+            if isinstance(value, dict):
+                data = value.get('data')  # Serialized attributes store the value at the key data
+                if data is not None:
+                    while isinstance(data, dict) and data.get('data') is not None:
+                        data = data['data']  # The np.void data is another level deeper
+                    value = data
+            assert (isinstance(key, str))
+            base_dict.update({key: value})
+
+    def _recursive_squash_dict(base_dict: dict[str, typing.Any]) -> dict[str, typing.Any]:
+        new_dict = {}
+        for key, value in base_dict.items():
+            if key == 'attrs':
+                _convert_attrs(value, new_dict)
+            elif isinstance(value, dict):
+                new_dict[key] = _recursive_squash_dict(base_dict[key])
+            elif isinstance(value, list):
+                items = []
+                for item in value:
+                    if isinstance(item, dict):
+                        items.append(_recursive_squash_dict(item))
+                    elif isinstance(item, numpy.floating):
+                        items.append(float(item))
+                    elif isinstance(item, numpy.integer):
+                        items.append(int(item))
+                    else:
+                        items.append(item)
+                new_dict[key] = items
+        return new_dict
+
+    return _recursive_squash_dict(metadata_dict)
+
+# h5py Groups to dictionaries
+
+def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
+    """Converts h5py groups to a dict, with nested groups becoming nested dicts, and stores attrs as a nested dict, ignores datasets.
+
+    Recursively visit all the nodes in the group converting attrs data to a type that can be stored in swift metadata DM_DICT_TYPES.
+    """
+
     def _convert_void_to_sequence(data: numpy.void, np_dtype: numpy.dtype, meta: dict[str, str]) \
             -> list[typing.Any] | tuple[typing.Any, ...] | typing.Any:
-        """Recursively convert a void to a list or tuple, using metadata dictionary to determine the container type
-        """
+        """Recursively convert a void to a list or tuple, using metadata dictionary to determine the container type"""
         if np_dtype.fields is None:
             return data.item()
 
@@ -182,6 +234,7 @@ def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
         return sequence if container == "list" else tuple(sequence)
 
     def _convert_attrs_to_dict(attrs: h5py.AttributeManager) -> dict[str, typing.Any]:
+        """Converts group attributes into a dict, serializing the data from dm5 types"""
         attrs_dict: dict[str, typing.Any] = dict()
         for key, value in attrs.items():
             if isinstance(key, bytes):  # Some of the keys were encoded so this was required
@@ -222,8 +275,9 @@ def convert_group_to_dict(group: h5py.Group) -> dict[str, typing.Any]:
 
 
 def convert_dict_to_group(base_dict: typing.Dict[str, typing.Any], group: h5py.Group) -> h5py.Group:
-    """ Converts dict to group by recursively going though the dicts values and rebuilding the groups, and attached attrs
-    Datasets are currently ignored
+    """Converts a dict to group going though any nested dicts rebuilding the groups, and attached attrs. Datasets are currently ignored.
+
+    If a nested dict named attrs is encountered then it will use that to create attributes for the parent group
     """
     def _convert_dict_to_attrs(attrs_dict: typing.Dict[str, typing.Any], base_group: h5py.Group) -> None:
         for key, value in attrs_dict.items():
@@ -236,7 +290,8 @@ def convert_dict_to_group(base_dict: typing.Dict[str, typing.Any], group: h5py.G
             base_group.attrs.create(name=key, data=value)
 
     def _convert_sequence_to_void(data: list[typing.Any] | tuple[typing.Any, ...] | typing.Any) -> tuple[numpy.dtype | None, (DM_FILE_TYPES | None) | tuple[DM_FILE_TYPES, ...]]:
-        """Recursively converts a tuple/list to a form that can be stored in a numpy.void. Returns numpy.dtype, and a tuple of values to use to create the void.
+        """Converts a tuple/list to a form that can be stored in a numpy.void. Returns numpy.dtype, and a tuple of values to use to create the void.
+
         Stores a recursive dictionary of the original container type (list or tuple) in the dtype metadata so it the original data can be rebuilt from the numpy void.
         """
         if not isinstance(data, (list, tuple)):
@@ -317,41 +372,3 @@ def convert_dict_to_group(base_dict: typing.Dict[str, typing.Any], group: h5py.G
         return top_group
 
     return _recursive_dict_to_group(base_dict, group)
-
-
-def squash_metadata_dict(metadata_dict: dict[str, typing.Any]) -> dict[str, typing.Any]:
-    """Removes the stored types made by serialize_dm_attrs_into_swift_metadata leaving only the data.
-    This is done so the swift metadata structure for everything but dm_metadata is identical to what would be seen in dm3/4.
-    """
-    def _convert_attrs(attrs_dict: typing.Dict[str, typing.Any], base_dict: dict[str, typing.Any]) -> None:
-        for key, value in attrs_dict.items():
-            if isinstance(value, dict):
-                data = value.get('data')  # Serialized attributes store the value at the key data
-                if data is not None:
-                    while isinstance(data, dict) and data.get('data') is not None:
-                        data = data['data']  # The np.void data is another level deeper
-                    value = data
-            assert (isinstance(key, str))
-            base_dict.update({key: value})
-
-    def _recursive_squash_dict(base_dict: dict[str, typing.Any]) -> dict[str, typing.Any]:
-        new_dict = {}
-        for key, value in base_dict.items():
-            if key == 'attrs':
-                _convert_attrs(value, new_dict)
-            elif isinstance(value, dict):
-                new_dict[key] = _recursive_squash_dict(base_dict[key])
-            elif isinstance(value, list):
-                items = []
-                for item in value:
-                    if isinstance(item, dict):
-                        items.append(_recursive_squash_dict(item))
-                    elif isinstance(item, numpy.floating):
-                        items.append(float(item))
-                    elif isinstance(item, numpy.integer):
-                        items.append(int(item))
-                    else:
-                        items.append(item)
-                new_dict[key] = items
-        return new_dict
-    return _recursive_squash_dict(metadata_dict)
