@@ -32,15 +32,24 @@ class DMIODelegate(abc.ABC):
     def io_handler_extensions(self) -> list[str]:
         ...
 
+    @abc.abstractmethod
+    def _export_data_and_metadata(self, xdata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, file_version: int) -> None:
+        ...
+
+    @abc.abstractmethod
+    def _import_data_and_metadata(self, file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
+        ...
+
     def read_data_and_metadata(self, extension: str, file_path: str) -> DataAndMetadata.DataAndMetadata:
         with open(file_path, "rb", buffering=8 * 1024 * 1024) as f:
-            return self.load_image(f)
+            return self._import_data_and_metadata(f)
 
     def can_write_data_and_metadata(self, data_and_metadata: DataAndMetadata.DataAndMetadata, extension: str) -> bool:
         return extension.lower() in self.io_handler_extensions
 
     def write_data_and_metadata(self, data_and_metadata: DataAndMetadata.DataAndMetadata, file_path_str: str, extension: str) -> None:
         file_path = pathlib.Path(file_path_str)
+        # The DataAndMetadata is cloned seemingly to prevent changes to the data while exporting
         data = data_and_metadata.data
         data_descriptor = data_and_metadata.data_descriptor
         dimensional_calibrations = list()
@@ -64,17 +73,10 @@ class DMIODelegate(abc.ABC):
                                                           timestamp=timestamp,
                                                           timezone=timezone,
                                                           timezone_offset=timezone_offset)
-            self.save_image(xdata, f, version)
+            self._export_data_and_metadata(xdata, f, version)
 
-    @abc.abstractmethod
-    def save_image(self, xdata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, file_version: int) -> None:
-        ...
 
-    @abc.abstractmethod
-    def load_image(self, file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
-        ...
-
-def get_datetime_from_timestamp_str(timestamp_str: str) -> typing.Optional[datetime.datetime]:
+def get_datetime_from_timestamp_str(timestamp_str: str) -> datetime.datetime | None:
     if len(timestamp_str) in (23, 26):
         return datetime.datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%f")
     elif len(timestamp_str) == 19:

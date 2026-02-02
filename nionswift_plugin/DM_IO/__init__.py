@@ -7,7 +7,7 @@ import gettext
 import typing
 
 # local libraries
-from DM_IO import DM34Delegate
+from nion.io.DM_IO import DM34Delegate
 
 _ = gettext.gettext
 

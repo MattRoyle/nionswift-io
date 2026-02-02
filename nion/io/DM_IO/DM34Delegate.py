@@ -3,7 +3,7 @@ import typing
 import numpy
 import pytz
 
-from DM_IO import ParseDM34File, DM34ImageUtils, DMDelegate
+from nion.io.DM_IO import ParseDM34File, DM34ImageUtils, DMDelegate
 from nion.data import DataAndMetadata, Calibration
 
 _ = gettext.gettext
@@ -23,7 +23,7 @@ class DM34IODelegate(DMDelegate.DMIODelegate):
     def io_handler_extensions(self) -> list[str]:
         return ["dm4", "dm3"]
 
-    def load_image(self, file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
+    def _import_data_and_metadata(self, file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
         """Loads the image from the file-like object or string file.
         If file is a string, the file is opened and then read.
         Returns a numpy ndarray of our best guess for the most important image
@@ -110,7 +110,7 @@ class DM34IODelegate(DMDelegate.DMIODelegate):
                                                      timezone=timezone,
                                                      timezone_offset=timezone_offset)
 
-    def save_image(self, xdata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, file_version: int) -> None:
+    def _export_data_and_metadata(self, xdata: DataAndMetadata.DataAndMetadata, file: typing.BinaryIO, file_version: int) -> None:
         """Saves the nparray data to the file-like object (or string) file.
         """
         # we need to create a basic DM tree suitable for an image

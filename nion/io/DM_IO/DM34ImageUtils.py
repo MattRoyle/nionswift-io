@@ -19,7 +19,7 @@ import typing
 
 import numpy
 import numpy.typing
-from DM_IO import ParseDM34File
+from nion.io.DM_IO import ParseDM34File
 
 def str_to_utf16_bytes(s: str) -> bytes:
     return s.encode('utf-16')

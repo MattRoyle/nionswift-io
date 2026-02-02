@@ -4,7 +4,7 @@ import array
 import numpy
 import unittest
 
-from DM_IO import ParseDM34File, DM34ImageUtils
+from nion.io.DM_IO import ParseDM34File, DM34ImageUtils
 
 
 def is_equal(r: typing.Any, data: typing.Any) -> bool:
@@ -43,23 +43,34 @@ class ParseDM34FileTest(unittest.TestCase):
         self.assertEqual(in_types, types)
 
     def test_simpledata(self) -> None:
-        self.check_write_then_read_matches(45, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('long')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('long')])
-        self.check_write_then_read_matches(2**30, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('uint')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('uint')])
-        self.check_write_then_read_matches(34.56, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('double')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('double')])
+        self.check_write_then_read_matches(45, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('long')], ParseDM34File.dm_read_types[
+            ParseDM34File.get_dmtype_for_name('long')])
+        self.check_write_then_read_matches(2 ** 30, ParseDM34File.dm_write_types[
+            ParseDM34File.get_dmtype_for_name('uint')], ParseDM34File.dm_read_types[
+                                               ParseDM34File.get_dmtype_for_name('uint')])
+        self.check_write_then_read_matches(34.56, ParseDM34File.dm_write_types[
+            ParseDM34File.get_dmtype_for_name('double')], ParseDM34File.dm_read_types[
+                                               ParseDM34File.get_dmtype_for_name('double')])
 
     def test_read_string(self) -> None:
         data = "MyString"
-        ret = self.check_write_then_read_matches(data, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('array')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('array')], False)
+        ret = self.check_write_then_read_matches(data, ParseDM34File.dm_write_types[
+            ParseDM34File.get_dmtype_for_name('array')], ParseDM34File.dm_read_types[
+                                                     ParseDM34File.get_dmtype_for_name('array')], False)
         self.assertEqual(data, DM34ImageUtils.fix_strings(ret))
 
     def test_array_simple(self) -> None:
         dat = ParseDM34File.DataChunkWriter(numpy.array([0] * 256, dtype=numpy.int8))
-        self.check_write_then_read_matches(dat, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('array')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('array')])
+        self.check_write_then_read_matches(dat, ParseDM34File.dm_write_types[
+            ParseDM34File.get_dmtype_for_name('array')], ParseDM34File.dm_read_types[
+                                               ParseDM34File.get_dmtype_for_name('array')])
 
     def test_array_struct(self) -> None:
         dat = ParseDM34File.StructArray(['h', 'h', 'h'])
         dat.raw_data = array.array('b', [0, 0] * 3 * 8)  # two bytes x 3 'h's x 8 elements
-        self.check_write_then_read_matches(dat, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('array')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('array')])
+        self.check_write_then_read_matches(dat, ParseDM34File.dm_write_types[
+            ParseDM34File.get_dmtype_for_name('array')], ParseDM34File.dm_read_types[
+                                               ParseDM34File.get_dmtype_for_name('array')])
 
     def test_tagdata(self) -> None:
         for d in [45, 2**30, 34.56, ParseDM34File.DataChunkWriter(numpy.array([0] * 256, dtype=numpy.int8))]:
@@ -86,9 +97,13 @@ class ParseDM34FileTest(unittest.TestCase):
     def test_struct(self) -> None:
         # note any strings here get converted to 'H' arrays!
         mydata = tuple[typing.Any]()
-        self.check_write_then_read_matches(mydata, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('struct')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('struct')])
+        self.check_write_then_read_matches(mydata, ParseDM34File.dm_write_types[
+            ParseDM34File.get_dmtype_for_name('struct')], ParseDM34File.dm_read_types[
+                                               ParseDM34File.get_dmtype_for_name('struct')])
         mydata = (3, 4, 56.7)
-        self.check_write_then_read_matches(mydata, ParseDM34File.dm_write_types[ParseDM34File.get_dmtype_for_name('struct')], ParseDM34File.dm_read_types[ParseDM34File.get_dmtype_for_name('struct')])
+        self.check_write_then_read_matches(mydata, ParseDM34File.dm_write_types[
+            ParseDM34File.get_dmtype_for_name('struct')], ParseDM34File.dm_read_types[
+                                               ParseDM34File.get_dmtype_for_name('struct')])
 
     def test_image(self) -> None:
         im = numpy.random.randint(low=0, high=65536, size=(32,), dtype=numpy.uint16)
