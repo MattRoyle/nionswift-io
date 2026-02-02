@@ -38,7 +38,7 @@ include = [
 ]
 
 [tool.setuptools.package-data]
-"nion/io/DM_IO.test" = ["resources/*"]
+"nion.io.DM_IO.test" = ["resources/*"]
 
 [tool.pytest.ini_options]
 testpaths = [
