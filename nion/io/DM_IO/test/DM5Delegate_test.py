@@ -1,9 +1,9 @@
 import typing
 import unittest
 
-from DM_IO.test import DMDelegate_test
-from DM_IO import DM5Delegate
-from DM_IO import DMDelegate
+from nion.io.DM_IO.test import DMDelegate_test
+from nion.io.DM_IO import DM5Delegate
+from nion.io.DM_IO import DMDelegate
 
 
 class TestDM5Delegate(DMDelegate_test.TestDMImportExportBase, unittest.TestCase):

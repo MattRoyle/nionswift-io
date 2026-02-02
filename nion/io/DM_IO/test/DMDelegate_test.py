@@ -16,7 +16,7 @@ import numpy.typing
 
 from nion.data import DataAndMetadata
 from nion.data import Calibration
-from DM_IO import DMDelegate
+from nion.io.DM_IO import DMDelegate
 
 
 class TestDMImportExportBase(abc.ABC):

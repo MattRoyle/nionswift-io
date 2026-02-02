@@ -5,11 +5,11 @@ import h5py
 import numpy
 import pytz
 
-from DM_IO import DM5Utils
-from DM_IO import DMDelegate
+from nion.io.DM_IO import DM5Utils
+from nion.io.DM_IO import DMDelegate
 from nion.data import DataAndMetadata
 from nion.data import Calibration
-from nionutils.nion.utils import DateTime
+from nion.utils import DateTime
 _ = gettext.gettext
 
 
@@ -27,8 +27,8 @@ class DM5IODelegate(DMDelegate.DMIODelegate):
     def io_handler_extensions(self) -> list[str]:
         return ["dm5"]
 
-    def load_image(self, file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
-        with h5py.File(file, "r") as file:
+    def load_image(self, b_file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
+        with h5py.File(b_file, "r") as file:
             # Find the index in the image list where the image data is stored
             document_object = file.get("DocumentObjectList", dict()).get('[0]', dict())
             if not hasattr(document_object, "attrs"):
@@ -54,7 +54,7 @@ class DM5IODelegate(DMDelegate.DMIODelegate):
                 units = dimension.attrs.get('Units')
                 units_str = ""
                 if isinstance(units, bytes):
-                    units_str = units.decode()
+                    units_str = DM5Utils.decode_bytes_to_str(units)
                 calibrations.append((-origin * scale, scale, units_str))
             calibrations = list(reversed(calibrations))
 
@@ -65,7 +65,7 @@ class DM5IODelegate(DMDelegate.DMIODelegate):
                 units = brightness.attrs.get('Units')
                 units_str = ""
                 if isinstance(units, bytes):
-                    units_str = units.decode()
+                    units_str = DM5Utils.decode_bytes_to_str(units)
                 intensity = -origin * scale, scale, units_str
             intensity_calibration = Calibration.Calibration(intensity[0], intensity[1], intensity[2])
 
