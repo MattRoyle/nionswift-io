@@ -30,6 +30,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = [
+    "nion.io.DM_IO",
     "nionswift_plugin",
     "nionswift_plugin.DM_IO",
     "nionswift_plugin.DM_IO.test",
