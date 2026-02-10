@@ -54,28 +54,32 @@ def _read_image_data(file: h5py.File) -> typing.Tuple[_NDArray, h5py.Group, h5py
     return data, image_data, image_ref
 
 
-def _read_data_descriptor(data: _NDArray,
-                          calibrations: list[Calibration.Calibration], is_sequence: bool, is_spectrum: bool) \
+def _read_data(data: _NDArray,
+               calibrations: list[Calibration.Calibration], is_sequence: bool, is_spectrum: bool) \
         -> tuple[_NDArray, list[Calibration.Calibration], DataAndMetadata.DataDescriptor]:
-    # Logic for the data descriptor
-    collection_dimension_count = 0
+    """Convert the dm data into the swift shape
+
+    Returns data, calibrations, DataDescriptor in the converted format for swift.
+    The conditions were derived from the dm3/4 code.
+    """
+    collection_dimension_count = 0 # default case for non-collection non-sequence,spectrum or image
     datum_dimension_count = len(data.shape)
-    if data.dtype == numpy.uint8:
+    if data.dtype == numpy.uint8:  #TODO this condition is not tested for
         collection_dimension_count, datum_dimension_count = (0, len(data.shape[:-1]))
     elif len(data.shape) == 3:
         if is_spectrum:
-            if data.shape[1] == 1:
+            if data.shape[1] == 1:  # Sequence or 1d collection of spectra
                 collection_dimension_count, datum_dimension_count = (1, 1)
                 data = numpy.squeeze(data, 1)
                 data = numpy.moveaxis(data, 0, 1)
                 calibrations = [calibrations[2], calibrations[0]]
-            else:
+            else:  # 2d Collection of spectra
                 collection_dimension_count, datum_dimension_count = (2, 1)
                 data = numpy.moveaxis(data, 0, 2)
                 calibrations = list(calibrations[1:]) + [calibrations[0]]
-        else:
+        else:  # Sequence or 1d collection of images
             collection_dimension_count, datum_dimension_count = (1, 2)
-    elif len(data.shape) == 4:
+    elif len(data.shape) == 4:  # 2d collection of images
         collection_dimension_count, datum_dimension_count = (2, 2)
 
     if is_spectrum:
@@ -83,19 +87,20 @@ def _read_data_descriptor(data: _NDArray,
         datum_dimension_count = 1
 
     if is_sequence and collection_dimension_count > 0:
-        is_sequence = True
         collection_dimension_count -= 1
+    else:
+        is_sequence = False
     return data, calibrations, DataAndMetadata.DataDescriptor(is_sequence, collection_dimension_count, datum_dimension_count)
 
 
 @dataclasses.dataclass
 class TimeInfo:
-    timestamp: datetime.datetime | None
+    timestamp: datetime.datetime
     timezone: str | None
     timezone_offset: str | None
 
 
-def _read_datetime(image_tags: dict[str, typing.Any]) -> TimeInfo:
+def _read_datetime(image_tags: dict[str, typing.Any]) -> TimeInfo | None:
     timestamp = None
     timestamp_str = DM5Utils.get_from_nested_dict(image_tags, ["__attrs__", "Timestamp"])
     if timestamp_str:
@@ -119,7 +124,10 @@ def _read_datetime(image_tags: dict[str, typing.Any]) -> TimeInfo:
             image_tags["__attrs__"].pop('Timezone')
         if len(image_tags["__attrs__"]) == 0:
             image_tags.pop("__attrs__")
-    return TimeInfo(timestamp, timezone, timezone_offset)
+    if timestamp is not None:
+        return TimeInfo(timestamp, timezone, timezone_offset)
+    else:
+        return None
 
 
 def _read_metadata(image_tags: dict[str, typing.Any], meta_data_attrs: dict[str, typing.Any], unread_dm_metadata_dict: dict[str, typing.Any]) \
@@ -155,9 +163,9 @@ def load_image(b_file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
         meta_data_attrs = DM5Utils.get_from_nested_dict(image_tags, ["Meta Data", "__attrs__"], dict())
 
         is_spectrum = DM5Utils.get_from_nested_dict(meta_data_attrs, ['Format'], '').lower() in ("spectrum", "spectrum image")
-        is_sequence = meta_data_attrs.get('IsSequence', False)
+        is_sequence = DM5Utils.get_from_nested_dict(meta_data_attrs, ['IsSequence', "__data__"], False)
 
-        data, dimensional_calibrations, data_descriptor = _read_data_descriptor(data, dimensional_calibrations, is_sequence, is_spectrum)
+        data, dimensional_calibrations, data_descriptor = _read_data(data, dimensional_calibrations, is_sequence, is_spectrum)
         timeinfo = _read_datetime(image_tags)
         properties = _read_metadata(image_tags, meta_data_attrs, unread_dm_metadata_dict)
 
@@ -169,9 +177,9 @@ def load_image(b_file: typing.BinaryIO) -> DataAndMetadata.DataAndMetadata:
                                                      dimensional_calibrations=dimensional_calibrations,
                                                      intensity_calibration=intensity_calibration,
                                                      metadata=properties,
-                                                     timestamp=timeinfo.timestamp,
-                                                     timezone=timeinfo.timezone,
-                                                     timezone_offset=timeinfo.timezone_offset)
+                                                     timestamp=timeinfo.timestamp if timeinfo else None,
+                                                     timezone=timeinfo.timezone if timeinfo else None,
+                                                     timezone_offset=timeinfo.timezone_offset if timeinfo else None)
 
 
 def _save_dimensional_calibrations(calibrations: h5py.Group, dimensional_calibrations: typing.Sequence[Calibration.Calibration]) -> None:

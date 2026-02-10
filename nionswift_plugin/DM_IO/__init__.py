@@ -46,7 +46,7 @@ class DM3IODelegate(object):
     def __init__(self, api: typing.Any) -> None:
         self.__api = api
         self.io_handler_id = "dm-io-handler"
-        self.io_handler_name = _("DigitalMicrograph 3 & 4")
+        self.io_handler_name = _("DigitalMicrograph Files")
         self.io_handler_extensions = ["dm4", "dm3"]
 
     def read_data_and_metadata(self, extension: str, file_path: str) -> DataAndMetadata.DataAndMetadata:
@@ -86,7 +86,7 @@ class DM3IODelegate(object):
 class DM3IOExtension(object):
 
     # required for Swift to recognize this as an extension class.
-    extension_id = "nion.swift.extensions.dm_io"
+    extension_id = "nion.swift.extensions.dm3"
 
     def __init__(self, api_broker: typing.Any) -> None:
         # grab the api object.
